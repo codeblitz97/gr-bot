@@ -1,0 +1,20 @@
+{
+  "dependencies": {
+    "axios": "^1.6.7",
+    "commandkit": "^0.1.10",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.4"
+  },
+  "name": "gr-bot",
+  "description": "",
+  "version": "1.0.0",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
