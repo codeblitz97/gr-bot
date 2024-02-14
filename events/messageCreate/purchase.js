@@ -3,74 +3,106 @@ const { AttachmentBuilder } = require('discord.js');
 const path = require('path');
 const { parseFile } = require('../../parseSerials');
 const crypto = require('crypto');
+const fs = require('fs/promises');
 
-const QUEUE_FILE_PATH = path.join(__dirname, 'queue.json');
+const QUEUE_FILE_PATH = path.resolve(__dirname, '..', '..', 'queue.json');
+const WHITELIST_FILE_PATH = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  'whitelist.json'
+);
 
 module.exports = async (message, client) => {
   if (message.content.startsWith('!purchase')) {
-    const args = message.content.split(' ');
+    const whitelistedUsers = await fs.readFile(WHITELIST_FILE_PATH, 'utf-8');
+    const p = JSON.parse(whitelistedUsers);
 
-    if (args.length >= 3) {
-      const amount = args[1];
-      const playerId = args[2];
+    if (p.whitelistedUserIDs.includes(message.author.id)) {
+      const args = message.content.split(' ');
 
-      const numericAmount = parseInt(amount);
+      if (args.length >= 3) {
+        const amount = args[1];
+        const playerId = args[2];
 
-      const serials = parseFile(path.join(__dirname, 'serials.txt'));
+        const numericAmount = parseInt(amount);
 
-      const matchingEntry = serials.find(
-        (entry) => entry.amount === numericAmount
-      );
+        const serials = parseFile(
+          path.resolve(__dirname, '..', '..', 'serials.txt')
+        );
 
-      if (matchingEntry) {
-        const { serial, pin } = matchingEntry;
+        const matchingEntry = serials.find(
+          (entry) => entry.amount === numericAmount
+        );
 
-        try {
-          let queueList = [];
+        if (matchingEntry) {
+          const { serial, pin } = matchingEntry;
+
           try {
-            const queueFileContent = await fs.readFile(
+            let queueList = [];
+            try {
+              const queueFileContent = await fs.readFile(
+                QUEUE_FILE_PATH,
+                'utf-8'
+              );
+              queueList = JSON.parse(queueFileContent);
+            } catch (err) {
+              console.error('Error reading queue file:', err.message);
+            }
+
+            const orderId = generateOrderId(playerId, amount);
+            queueList.push(orderId);
+            await fs.writeFile(
               QUEUE_FILE_PATH,
-              'utf-8'
+              JSON.stringify(queueList, null, 2)
             );
-            queueList = JSON.parse(queueFileContent);
-          } catch (err) {
-            console.error('Error reading queue file:', err.message);
-          }
 
-          const orderId = generateOrderId(playerId, amount);
-          queueList.push(orderId);
-          await fs.writeFile(
-            QUEUE_FILE_PATH,
-            JSON.stringify(queueList, null, 2)
-          );
-
-          for (const orderId of queueList) {
-            await processOrder(orderId, playerId, amount, serial, pin, message);
-            await sleep(15 * 60 * 1000);
+            for (const orderId of queueList) {
+              await processOrder(
+                orderId,
+                playerId,
+                amount,
+                serial,
+                pin,
+                message
+              );
+            }
+            await fs.writeFile(QUEUE_FILE_PATH, '[]');
+          } catch (error) {
+            console.error('Error making purchase request:', error.message);
           }
-        } catch (error) {
-          console.error('Error making purchase request:', error.message);
+        } else {
+          message.reply('No matching entry found for the provided amount.');
         }
       } else {
-        message.reply('No matching entry found for the provided amount.');
+        message.reply(
+          'Invalid syntax. Please use: !purchase [amount] [playerId]'
+        );
       }
     } else {
-      message.reply(
-        'Invalid syntax. Please use: !purchase [amount] [playerId]'
-      );
+      await message.reply({
+        content: "Nu! You cannot purchase unless you're whitelisted",
+      });
     }
   }
 };
 
 async function processOrder(orderId, playerId, amount, serial, pin, message) {
   try {
-    const response = await axios.post(`${process.env.SERVER_URL}/purchase`, {
-      playerId,
-      amount,
-      serial,
-      pin,
-      orderId,
-    });
+    const response = await axios.post(
+      `${process.env.SERVER_URL}/purchase`,
+      {
+        playerId: playerId,
+        amount: amount,
+        serial: serial,
+        pin: pin,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
     const attachment = new AttachmentBuilder(
       await response.data.images[2].content,

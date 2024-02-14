@@ -34,10 +34,12 @@ const parseFile = (filePath) => {
       // Add serial information to the current data entry
       currentEntry.serial = line.split(':')[1].trim();
     } else if (line.trim().startsWith('pin:')) {
-      // Add PIN information to the current data entry and push it to the array
+      // Add PIN information to the current data entry
       currentEntry.pin = line.split(':')[1].trim();
+      // Push the current entry to the array
       dataEntries.push(currentEntry);
-      currentEntry = null; // Reset current entry
+      // Reset current entry and clear the serial
+      currentEntry = null;
     }
   }
 
