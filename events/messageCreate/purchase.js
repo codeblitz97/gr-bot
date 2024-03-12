@@ -104,10 +104,13 @@ async function processOrder(orderId, playerId, amount, serial, pin, message) {
       }
     );
 
-    const attachment = new AttachmentBuilder(
-      await response.data.images[2].content,
-      { name: 'message.png' }
-    );
+    const imageBuffer = Buffer.from(response.data.image, 'base64');
+
+    const attachment = new AttachmentBuilder(imageBuffer, {
+      name: `item-${
+        generateOrderId(playerId, amount) + response.data.totalTimeTaken
+      }`,
+    });
 
     await message.channel.send({
       message: 'Successfully purchased',
