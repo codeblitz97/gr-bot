@@ -12,6 +12,7 @@ const WHITELIST_FILE_PATH = path.resolve(
   '..',
   'whitelist.json'
 );
+const SERIALS_FILE_PATH = path.resolve(__dirname, '..', '..', 'serials.json');
 
 module.exports = async (message, client) => {
   if (message.content.startsWith('!purchase')) {
@@ -27,16 +28,14 @@ module.exports = async (message, client) => {
 
         const numericAmount = parseInt(amount);
 
-        const serials = parseFile(
-          path.resolve(__dirname, '..', '..', 'serials.txt')
-        );
+        const serials = await parseSerials(SERIALS_FILE_PATH);
 
-        const matchingEntry = serials.find(
+        const matchingEntryIndex = serials.findIndex(
           (entry) => entry.amount === numericAmount
         );
 
-        if (matchingEntry) {
-          const { serial, pin } = matchingEntry;
+        if (matchingEntryIndex !== -1) {
+          const { serial, pin } = serials[matchingEntryIndex];
 
           try {
             let queueList = [];
@@ -64,6 +63,7 @@ module.exports = async (message, client) => {
                 amount,
                 serial,
                 pin,
+                matchingEntryIndex,
                 message
               );
             }
@@ -87,7 +87,15 @@ module.exports = async (message, client) => {
   }
 };
 
-async function processOrder(orderId, playerId, amount, serial, pin, message) {
+async function processOrder(
+  orderId,
+  playerId,
+  amount,
+  serial,
+  pin,
+  entryIndex,
+  message
+) {
   try {
     const response = await axios.post(
       `${process.env.SERVER_URL}/purchase`,
@@ -113,9 +121,13 @@ async function processOrder(orderId, playerId, amount, serial, pin, message) {
     });
 
     await message.channel.send({
-      message: 'Successfully purchased',
+      content: 'Successfully purchased',
       files: [attachment],
     });
+
+    const serials = await parseSerials(SERIALS_FILE_PATH);
+    serials.splice(entryIndex, 1);
+    await fs.writeFile(SERIALS_FILE_PATH, JSON.stringify(serials, null, 2));
 
     const queueFileContent = await fs.readFile(QUEUE_FILE_PATH, 'utf-8');
     const queueList = JSON.parse(queueFileContent);
@@ -123,6 +135,16 @@ async function processOrder(orderId, playerId, amount, serial, pin, message) {
     await fs.writeFile(QUEUE_FILE_PATH, JSON.stringify(updatedQueue, null, 2));
   } catch (error) {
     console.error('Error processing order:', error.message);
+  }
+}
+
+async function parseSerials(filePath) {
+  try {
+    const fileContent = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(fileContent);
+  } catch (error) {
+    console.error('Error parsing serials file:', error.message);
+    return [];
   }
 }
 

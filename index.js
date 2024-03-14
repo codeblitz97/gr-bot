@@ -14,11 +14,7 @@ new CommandKit({
   client,
   commandsPath: path.join(__dirname, 'commands'),
   eventsPath: path.join(__dirname, 'events'),
-  devGuildIds: [
-    '1207206122868441139',
-    '1164968463492722688',
-    '1201154718634885143',
-  ],
+  devGuildIds: process.env.GUILD_IDS.split(', '),
   devUserIds: [
     '1153367065537822772',
     '1201153624718454845',

@@ -127,5 +127,5 @@ dist
 .pnp.*
 
 whitelist.json
-serials.txt
+serials.json
 queue.json
